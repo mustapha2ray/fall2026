@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0E1520">
+<title>Fall 2026</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Fall 2026">
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;background:#0E1520}
+body{color:#E7EDF4;font-family:ui-sans-serif,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+     font-variant-numeric:tabular-nums;line-height:1.45;padding:18px 16px 40px;
+     padding-bottom:calc(40px + env(safe-area-inset-bottom))}
+h1,h2,h3{margin:0;font-weight:600;letter-spacing:-.02em}
+.wrap{max-width:1060px;margin:0 auto}
+.muted{color:#8598AC}
+.panel{background:#141E2C;border:1px solid #223245;border-radius:10px}
+.row{display:flex;gap:12px;flex-wrap:wrap}
+button,input,select,textarea{font-family:inherit;font-variant-numeric:tabular-nums}
+.btn{background:#1C2A3B;border:1px solid #2C3F55;color:#CBD8E6;border-radius:7px;
+     padding:8px 13px;font-size:13px;cursor:pointer}
+.btn:hover{background:#243549}
+.btn.on{background:#2F5C8A;border-color:#4A82BC;color:#fff}
+.btn:disabled{opacity:.45;cursor:default}
+input,select,textarea{background:#0E1724;border:1px solid #2C3F55;color:#E7EDF4;
+     border-radius:6px;padding:8px 9px;font-size:16px}
+@media(min-width:700px){input,select,textarea{font-size:13px}}
+textarea{width:100%;min-height:100px;line-height:1.5;resize:vertical}
+input:focus,select:focus,textarea:focus,.btn:focus-visible{outline:2px solid #6FA3D6;outline-offset:1px}
+.big{font-size:44px;font-weight:600;letter-spacing:-.04em;line-height:1}
+.tapewrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.tape{position:relative;height:126px;min-width:780px}
+.lane{position:absolute;bottom:26px;width:100%;height:1px;background:#2A3B50}
+.mark{position:absolute;bottom:27px;transform:translateX(-50%);width:8px;border-radius:2px 2px 0 0;cursor:pointer}
+.tick{position:absolute;bottom:6px;transform:translateX(-50%);font-size:10.5px;color:#69809A;white-space:nowrap}
+.now{position:absolute;bottom:26px;top:6px;width:1px;background:#E0A33E}
+.item{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid #1E2B3B;flex-wrap:wrap}
+.pill{font-size:11px;padding:2px 7px;border-radius:20px;border:1px solid #35485F;color:#9DB0C4;white-space:nowrap}
+.flag{border-left:3px solid #C97A5D;background:#1B1A22;padding:11px 14px;border-radius:0 8px 8px 0;
+      font-size:13px;margin-bottom:8px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+td,th{text-align:left;padding:8px;border-bottom:1px solid #1E2B3B;vertical-align:top}
+th{color:#8598AC;font-weight:500}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.ck{width:18px;height:18px;flex:none}
+.hd{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+.bar{height:3px;background:#1C2A3B;border-radius:2px;margin-bottom:18px}
+.bar>i{display:block;height:3px;background:#4A82BC;border-radius:2px}
+.chead{padding:13px 16px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:12px}
+.sync{font-size:12px}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"><div class="muted">Loading…</div></div>
+
+<script>
+/* ============================ SCALES ============================ */
+const HASKAYNE=[["A+",95,4],["A",90,4],["A-",85,3.7],["B+",80,3.3],["B",75,3],["B-",70,2.7],
+  ["C+",65,2.3],["C",60,2],["C-",55,1.7],["D+",52,1.3],["D",50,1],["F",0,0]];
+const OPMA_SCALE=[["A+",90,4],["A",86,4],["A-",82,3.7],["B+",78,3.3],["B",74,3],["B-",70,2.7],
+  ["C+",66,2.3],["C",62,2],["C-",58,1.7],["D+",54,1.3],["D",50,1],["F",0,0]];
+
+const GEOG_SCALE=[["A+",96,4],["A",90,4],["A-",86,3.7],["B+",81,3.3],["B",77,3],["B-",71,2.7],
+  ["C+",65,2.3],["C",62,2],["C-",59,1.7],["D+",55,1.3],["D",50,1],["F",0,0]];
+
+const letterFor=(p,s)=>{if(p===null||isNaN(p))return null;
+  for(const r of s)if(p>=r[1])return{letter:r[0],gp:r[2],cutoff:r[1]};return{letter:"F",gp:0,cutoff:0}};
+const nextCut=(p,s)=>{const a=[...s].reverse();for(const r of a)if(r[1]>p)return{letter:r[0],cutoff:r[1]};return null};
+
+/* ============================ COURSES ============================ */
+const COURSES=[
+{id:"fnce",code:"FNCE 443",title:"Security Analysis and Investments",prof:"Steven Paget",
+ color:"#5B9BD5",scale:HASKAYNE,days:"Mon / Wed",room:"MTH 435",scaleNote:"A- starts at 85",
+ ai:"Allowed on assignments. Banned on the metacognition module.",
+ source:"Bodie, Kane, Marcus et al., Investments, 11th Canadian ed.",
+ sections:[{id:"L01",label:"L01 · 9:30–10:45 MW",day:"MW",start:570,end:645},
+           {id:"L02",label:"L02 · 11:00–12:15 MW",day:"MW",start:660,end:735},
+           {id:"L03",label:"L03 · 12:30–13:45 MW",day:"MW",start:750,end:825}],
+ groups:[{id:"fa",label:"Assignments (best 4 of 5)",total:30,bestOf:4}],hurdle:null,
+ items:[
+  {id:"f-q1",name:"Quiz 1 · Ch 1–6",w:7,due:"2026-09-21"},
+  {id:"f-a1",name:"Assignment 1 · Client Portfolio",group:"fa",due:"2026-09-28",note:"With a partner"},
+  {id:"f-q2",name:"Quiz 2 · Ch 5, 7, 9, 10",w:7,due:"2026-10-07"},
+  {id:"f-a2",name:"Assignment 2 · Efficient Frontier",group:"fa",due:"2026-10-13"},
+  {id:"f-q3",name:"Quiz 3 · Ch 11, 12, 17–19",w:7,due:"2026-10-28"},
+  {id:"f-meta",name:"Investment decision-making module",w:6,due:"2026-11-04",note:"No AI. Suspected use means a supervised rewrite."},
+  {id:"f-a3",name:"Assignment 3 · Equity Analysis",group:"fa",due:"2026-11-07",note:"Paget flags this as one of the two hardest"},
+  {id:"f-q4",name:"Quiz 4 · Ch 14–16",w:7,due:"2026-11-18"},
+  {id:"f-a4",name:"Assignment 4 · Bond Credit Rating",group:"fa",due:"2026-11-23"},
+  {id:"f-part",name:"Participation (Top Hat + engagement)",w:6,due:"2026-12-02",note:"5/6 is realistic. 6/6 is deliberately hard."},
+  {id:"f-a5",name:"Assignment 5 · Options & Put-Call Parity",group:"fa",due:"2026-12-05",note:"The other hardest one"},
+  {id:"f-fin",name:"Final exam · 3h, closed book",w:30,due:"2026-12-13",tbd:1,note:"Two-sided formula sheet + financial calculator"}]},
+
+{id:"obhr",code:"OBHR 317",title:"Organizational Behaviour and HR",prof:"Eric Myers",
+ color:"#C08A4A",scale:HASKAYNE,days:"Mon / Wed",room:"Zoom (camera on)",scaleNote:"A- starts at 85",
+ ai:"Banned on the paper and the exercises. Cite it anywhere else.",
+ source:"McShane & Warner, Canadian Organizational Behaviour, 12th ed.",
+ sections:[{id:"L01",label:"L01 · 9:30–10:45 MW",day:"MW",start:570,end:645}],
+ groups:[],hurdle:"You must pass every single assessment to pass the course.",
+ items:[
+  {id:"o-ex",name:"Class exercises + reflections (best 10)",w:20,due:"2026-12-02",note:"12–15 offered, top 10 count. 500–750 words each."},
+  {id:"o-pap",name:"Managing My Emotions paper",w:25,due:"2026-10-23",note:"5–6 pages, 11:59pm D2L. No AI."},
+  {id:"o-mid",name:"Midterm · 75 min, D2L in class",w:25,due:"2026-11-04"},
+  {id:"o-fin",name:"Final exam · 120 min, Ch 1–15",w:30,due:"2026-12-13",tbd:1}]},
+
+{id:"opma",code:"OPMA 317",title:"Operations and Supply Chain",prof:"Brent Snider",
+ color:"#6FA88A",scale:OPMA_SCALE,days:"Tue / Thu",room:"MTH 124",scaleNote:"A- starts at 82",
+ ai:"Allowed if you cite it.",
+ source:"Heizer, Render, Munson & Griffin, Operations Management, 5th Canadian ed.",
+ sections:[{id:"LEC4",label:"LEC 4 · 9:30–10:45 TR",day:"TR",start:570,end:645},
+           {id:"LEC5",label:"LEC 5 · 12:30–13:45 TR",day:"TR",start:750,end:825},
+           {id:"LEC6",label:"LEC 6 · 14:00–15:15 TR",day:"TR",start:840,end:915},
+           {id:"LEC7",label:"LEC 7 · 15:30–16:45 TR",day:"TR",start:930,end:1005}],
+ groups:[],hurdle:"Midterm and final must average 50% or you get capped at D+, whatever your total says.",
+ items:[
+  {id:"p-a1",name:"Assignment 1 · Project Management",w:10,due:"2026-10-01",note:"Printed hard copy, SH183 dropbox, 5:00pm. Cover page required."},
+  {id:"p-mid",name:"Midterm · paper, closed book",w:35,due:"2026-10-21",note:"Evening exam, 6:30pm. Intro through Capacity Management."},
+  {id:"p-a2",name:"Assignment 2 · SCM presentation",w:10,due:"2026-11-16",note:"D2L by 5:00pm, present Nov 17 or 19."},
+  {id:"p-a3",name:"Assignment 3 · Quality Management",w:10,due:"2026-12-03",note:"Hard copy, SH183 dropbox, 5:00pm."},
+  {id:"p-fin",name:"Final exam · not cumulative",w:35,due:"2026-12-13",tbd:1,note:"Post-midterm material only."}]},
+
+{id:"erth",code:"ERTH 374",title:"Science of Natural Disasters in Popular Culture",prof:"Marius Georgescu",
+ color:"#C4705E",scale:null,passFail:true,passThreshold:50,days:"Tue / Thu",room:"Online",scaleNote:"CR/F only, no GPA weight",
+ ai:"Not stated in the outline. Ask before assuming.",
+ source:"No textbook required. Lecture material and D2L only.",
+ sections:[{id:"L01",label:"L01 · 15:30–16:45 TR, online",day:"TR",start:930,end:1005}],
+ groups:[],hurdle:"Completed Requirements or Fail only. You need 50% combined across all three exams to pass. No GPA weight either way.",
+ items:[
+  {id:"e-m1",name:"Midterm 1 · in lecture",w:25,due:"2026-10-08"},
+  {id:"e-m2",name:"Midterm 2 · in lecture",w:30,due:"2026-11-05"},
+  {id:"e-fin",name:"Final exam · registrar scheduled",w:45,due:"2026-12-13",tbd:1}]},
+
+{id:"geog",code:"GEOG 330",title:"Geographies of Europe",prof:"Eda Acara",
+ color:"#8A7FB5",scale:GEOG_SCALE,days:"Asynchronous",room:"Online, D2L",scaleNote:"B+ starts at 81, A- at 86",
+ ai:"Banned on all graded quizzes and exams.",
+ source:"Murphy, Jordan-Bychkov & Jordan, The European Culture Area, 7th ed.",
+ sections:[{id:"L01",label:"Asynchronous · no set time",day:"ASYNC",start:0,end:0}],
+ groups:[],hurdle:null,
+ items:[
+  {id:"g-q1",name:"Quiz 1 · Weeks 1–5",w:10,due:"2026-10-05",note:"Open book, D2L, 11:59pm."},
+  {id:"g-mid",name:"Midterm · cumulative Weeks 1–8",w:30,due:"2026-10-23",note:"D2L window runs 12:00am to 11:59pm."},
+  {id:"g-atlas",name:"Class Atlas of Europe",w:10,due:"2026-11-27",note:"Claim your pin between Oct 19 and Nov 13 first. Late penalty 20% per day."},
+  {id:"g-fin",name:"Final exam · Weeks 1–13",w:50,due:"2026-12-15",note:"Dec 15, not registrar scheduled. Heaviest single item you carry."}]}
+];
+
+/* ============================ PREP ============================ */
+const PREP=[
+["geog","2026-09-01","Case 01 · Human Geography Ch 1 + Exploring Physical Geography Ch 1; film The Human Scale",1],
+["geog","2026-09-07","Case 02 · Ch 1 What and Where is Europe + Ch 2 The Physical Environment",2],
+["geog","2026-09-14","Case 03 · Ch 7 Land and Life in the Rural Sector; BBC night train podcast",3],
+["geog","2026-09-21","Case 04 · Ch 8 Manufacturing pp 231–259; The Wall (1990)",4],
+["geog","2026-09-28","Case 05 · Ch 3 Demography; CORRECTIV depopulation; Euronews on Greece",5],
+["geog","2026-10-05","Case 06 · Ch 4 Languages + Ch 5 Religion; Walking the Camino",6],
+["geog","2026-10-12","Case 07 · Ch 6 The European State System; DW German reunification",7],
+["geog","2026-10-19","Case 08 · Ch 8 pp 259–269 + Ch 9 The Post-Industrial Economy",8],
+["geog","2026-10-26","Case 09 · Ch 10 The European City; Lefebvre; Metropolis",9],
+["geog","2026-11-02","Case 10 · Harvey, The Right to the City; Bonshoms-Guzman; film PUSH",10],
+["geog","2026-11-16","Case 11 · Ch 12 European Integration; Acara & Ozdemir; Fire at Sea",11],
+["geog","2026-11-23","Case 12 · Bulkeley et al.; DW on Gazprom; coal consumption data",12],
+["geog","2026-11-30","Case 13 · Massey, A Global Sense of Place; China's New Silk Road",13],
+["fnce","2026-09-02","Ch 1–2 · Securities and market basics"],
+["fnce","2026-09-09","Ch 3 · Market operations and trading"],
+["fnce","2026-09-14","Ch 3–4 · Mutual funds, ETFs, shorting and margin"],
+["fnce","2026-09-16","Ch 5–6 · Risk allocation and the optimal risky portfolio"],
+["fnce","2026-09-23","Ch 7 · Index models"],
+["fnce","2026-10-05","Ch 9–10 · CAPM and arbitrage pricing theory"],
+["fnce","2026-10-14","Ch 11–12 · Behavioural finance and market efficiency"],
+["fnce","2026-10-19","Ch 17 · Macro and equity analysis"],
+["fnce","2026-10-21","Ch 18 · Equity valuation"],
+["fnce","2026-10-26","Ch 19 · Financial statement analysis"],
+["fnce","2026-11-02","Ch 14 · Bond prices and yields"],
+["fnce","2026-11-04","Ch 15 · The term structure of interest rates"],
+["fnce","2026-11-16","Ch 16 · Duration and bond portfolio management"],
+["fnce","2026-11-23","Ch 20 · Options markets"],
+["fnce","2026-11-25","Ch 21 · Option valuation"],
+["obhr","2026-09-02","Ch 1 · What is organizational behaviour"],
+["obhr","2026-09-14","Ch 2 · Personality and values"],
+["obhr","2026-09-21","Ch 3 · Perception"],
+["obhr","2026-09-28","Ch 4 · Emotions, attitudes and stress"],
+["obhr","2026-10-07","Ch 5 · Motivation"],
+["obhr","2026-10-19","Ch 7 · Decision-making"],
+["obhr","2026-10-26","Ch 8 · Team dynamics"],
+["obhr","2026-11-02","Ch 9 · Communicating in teams and organizations"],
+["obhr","2026-11-16","Ch 10 · Power and influence"],
+["obhr","2026-11-18","Ch 11 · Conflict and negotiation"],
+["obhr","2026-11-23","Ch 12 · Leadership"],
+["obhr","2026-11-30","Ch 14 · Organizational culture"],
+["obhr","2026-12-02","Ch 15 · Organizational change"],
+["opma","2026-09-08","Ch 1–2 · Operations and supply chain fundamentals"],
+["opma","2026-09-10","Ch 3 · Project management and scheduling"],
+["opma","2026-10-01","Ch 12 · Inventory management"],
+["opma","2026-10-13","Ch 7S and Ch 9 · Capacity management"],
+["opma","2026-11-03","Ch 11 and 11S · Supply chain management"],
+["opma","2026-11-05","Ch 5 and 5S · Design of goods and services"],
+["opma","2026-11-17","Ch 6 · Quality management"],
+["opma","2026-11-19","Ch 6S · Statistical process control"],
+["opma","2026-12-03","Ch 16 · Process analysis and improvement"]
+].map((p,i)=>({id:"r"+i,c:p[0],date:p[1],t:p[2],u:p[3]}));
+
+const SETUP=[
+{id:"t1",text:"Register Top Hat with your UCalgary email (FNCE attendance runs on it)",due:"2026-09-03",course:"fnce"},
+{id:"t2",text:"Get Bodie Investments 11e, McShane OB 12e, Murphy European Culture Area 7e",due:"2026-09-08",course:null},
+{id:"t3",text:"Last day to add or swap a course",due:"2026-09-11",course:null},
+{id:"t4",text:"Lock in a FNCE assignment partner",due:"2026-09-14",course:"fnce"},
+{id:"t5",text:"Self-select OPMA group in D2L before it closes at 9:00am",due:"2026-09-14",course:"opma"},
+{id:"t6",text:"Print the OPMA cover page template for Assignment 1",due:"2026-09-29",course:"opma"},
+{id:"t7",text:"Start drafting the OBHR emotions paper",due:"2026-10-12",course:"obhr"},
+{id:"t8",text:"Start GEOG midterm review (cumulative Weeks 1–8)",due:"2026-10-16",course:"geog"},
+{id:"t9",text:"Claim your GEOG Atlas pin the day the registry opens",due:"2026-10-19",course:"geog"},
+{id:"t10",text:"GEOG Atlas pin claim deadline",due:"2026-11-13",course:"geog"},
+{id:"t11",text:"Final exam period begins, check Student Centre for times",due:"2026-12-08",course:null},
+{id:"t12",text:"Last day to withdraw from a course",due:"2026-12-04",course:null}];
+
+const T0=new Date("2026-09-01T00:00:00"), T1=new Date("2026-12-18T00:00:00");
+const d=s=>new Date(s+"T00:00:00");
+const fmt=s=>d(s).toLocaleDateString("en-CA",{month:"short",day:"numeric"});
+const fmtL=s=>d(s).toLocaleDateString("en-CA",{weekday:"short",month:"short",day:"numeric"});
+const dbet=(a,b)=>Math.round((b-a)/864e5);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+/* ============================ STATE ============================ */
+const KEY="f26state";
+let S={scores:{},readDone:{},doneTasks:{},customTasks:[],
+       sections:{fnce:"L02",obhr:"L01",opma:"LEC5",erth:"L01",geog:"L01"},
+       targets:{fnce:85,obhr:85,opma:82,erth:85,geog:86},updated:0};
+let CFG={url:"",key:"",id:""};
+let tab="grades", openCourse="fnce", prepCourse="geog", syncMsg="";
+
+function loadLocal(){
+  try{const r=localStorage.getItem(KEY); if(r)S=Object.assign(S,JSON.parse(r));}catch(e){}
+  try{const c=localStorage.getItem(KEY+"cfg"); if(c)CFG=Object.assign(CFG,JSON.parse(c));}catch(e){}
+}
+function saveLocal(){
+  S.updated=Date.now();
+  try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}
+  queueSync();
+}
+function saveCfg(){try{localStorage.setItem(KEY+"cfg",JSON.stringify(CFG));}catch(e){}}
+
+/* ---------- optional Supabase sync ---------- */
+const syncOn=()=>!!(CFG.url&&CFG.key&&CFG.id);
+let syncTimer=null;
+function queueSync(){
+  if(!syncOn())return;
+  clearTimeout(syncTimer);
+  syncTimer=setTimeout(pushRemote,1200);
+}
+function hdrs(){return{apikey:CFG.key,Authorization:"Bearer "+CFG.key,"Content-Type":"application/json"}}
+async function pushRemote(){
+  if(!syncOn())return;
+  try{
+    setSync("syncing");
+    const r=await fetch(CFG.url.replace(/\/$/,"")+"/rest/v1/semester_state",
+      {method:"POST",headers:Object.assign(hdrs(),{Prefer:"resolution=merge-duplicates"}),
+       body:JSON.stringify({id:CFG.id,data:JSON.stringify(S),updated:S.updated})});
+    setSync(r.ok?"synced":"sync failed ("+r.status+")");
+  }catch(e){setSync("offline, saved locally")}
+}
+async function pullRemote(force){
+  if(!syncOn())return;
+  try{
+    setSync("checking");
+    const u=CFG.url.replace(/\/$/,"")+"/rest/v1/semester_state?id=eq."+
+      encodeURIComponent(CFG.id)+"&select=data,updated";
+    const r=await fetch(u,{headers:hdrs()});
+    if(!r.ok){setSync("sync failed ("+r.status+")");return}
+    const rows=await r.json();
+    if(!rows.length){setSync("no cloud copy yet");await pushRemote();return}
+    const remote=rows[0];
+    if(force||(remote.updated||0)>(S.updated||0)){
+      S=Object.assign(S,JSON.parse(remote.data));
+      try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}
+      setSync("pulled from cloud");render();
+    }else setSync("up to date");
+  }catch(e){setSync("offline, using local copy")}
+}
+function setSync(m){syncMsg=m;const el=document.getElementById("syncmsg");if(el)el.textContent=m;
+  clearTimeout(setSync.t);setSync.t=setTimeout(()=>{syncMsg="";const e2=document.getElementById("syncmsg");if(e2)e2.textContent=""},3500)}
+
+/* ============================ MATH ============================ */
+function compute(c){
+  let earned=0,counted=0,remaining=0;const gs={};
+  (c.groups||[]).forEach(g=>{
+    const each=g.total/g.bestOf;
+    const en=c.items.filter(i=>i.group===g.id)
+      .map(m=>({id:m.id,v:parseFloat(S.scores[m.id])}))
+      .filter(x=>!isNaN(x.v)).sort((a,b)=>b.v-a.v);
+    const kept=en.slice(0,g.bestOf);
+    kept.forEach(k=>{earned+=each*k.v/100;counted+=each});
+    remaining+=g.total-kept.length*each;
+    gs[g.id]={kept:kept.map(k=>k.id),each};
+  });
+  c.items.forEach(i=>{
+    if(i.group)return;
+    const v=parseFloat(S.scores[i.id]);
+    if(!isNaN(v)){earned+=i.w*v/100;counted+=i.w}else remaining+=i.w;
+  });
+  return{earned,counted,remaining,standing:counted>0?earned/counted*100:null,
+         floor:earned,ceiling:earned+remaining,gs};
+}
+const needFor=(t,e,r)=>r<=0?null:(t-e)/r*100;
+
+/* ============================ RENDER ============================ */
+function render(){
+  const today=new Date(), tm=new Date(today.toDateString());
+  const R={};COURSES.forEach(c=>R[c.id]=compute(c));
+  const rows=COURSES.map(c=>{if(c.passFail)return null;const r=R[c.id];if(r.standing===null)return null;
+    return Object.assign({code:c.code,pct:r.standing},letterFor(r.standing,c.scale))});
+  const valid=rows.filter(Boolean);
+  const gpaCourseCount=COURSES.filter(c=>!c.passFail).length;
+  const gpa=valid.length?valid.reduce((a,b)=>a+b.gp,0)/valid.length:null;
+  const pct=Math.max(0,Math.min(1,(today-T0)/(T1-T0)));
+
+  const deadlines=[];
+  COURSES.forEach(c=>c.items.forEach(i=>deadlines.push(Object.assign({},i,{course:c,type:"a"}))));
+  SETUP.concat(S.customTasks).forEach(t=>deadlines.push(
+    {id:t.id,name:t.text,due:t.due,course:COURSES.find(x=>x.id===t.course)||null,type:"t"}));
+  deadlines.sort((a,b)=>d(a.due)-d(b.due));
+  const done=i=>i.type==="t"?!!S.doneTasks[i.id]:S.scores[i.id]!==undefined&&S.scores[i.id]!=="";
+  const up=deadlines.filter(i=>d(i.due)>=tm&&!done(i)).slice(0,7);
+  const over=deadlines.filter(i=>d(i.due)<tm&&!done(i));
+
+  const behind={};COURSES.forEach(c=>{const m=PREP.filter(p=>p.c===c.id);
+    behind[c.id]={behind:m.filter(p=>d(p.date)<tm&&!S.readDone[p.id]).length,
+                  done:m.filter(p=>S.readDone[p.id]).length,total:m.length}});
+  const totalBehind=Object.values(behind).reduce((a,b)=>a+b.behind,0);
+
+  let h="";
+  h+=`<div class="hd"><div><h1 style="font-size:25px">Fall 2026</h1>
+    <div class="muted" style="font-size:13.5px;margin-top:3px">Five courses · ${dbet(today,T1)} days to the end of finals
+    <span id="syncmsg" class="sync" style="margin-left:8px;color:#6FA88A">${esc(syncMsg)}</span></div></div>
+    <div style="text-align:right"><div class="big" style="color:${gpa===null?"#3E5064":"#E7EDF4"}">${gpa===null?"—":gpa.toFixed(2)}</div>
+    <div class="muted" style="font-size:12px">${valid.length===0?"GPA appears once you enter a mark":"projected GPA · "+valid.length+" of "+gpaCourseCount+" GPA courses graded"}</div></div></div>`;
+  h+=`<div class="bar"><i style="width:${(pct*100).toFixed(1)}%"></i></div>`;
+
+  /* tape */
+  h+=`<div class="panel" style="padding:14px 16px 6px;margin-bottom:16px"><div class="tapewrap"><div class="tape"><div class="lane"></div>`;
+  ["2026-09-01","2026-10-01","2026-11-01","2026-12-01","2026-12-18"].forEach(t=>{
+    h+=`<div class="tick" style="left:${(d(t)-T0)/(T1-T0)*100}%">${fmt(t)}</div>`});
+  if(today>=T0&&today<=T1)h+=`<div class="now" style="left:${(pct*100).toFixed(2)}%"></div>`;
+  COURSES.forEach(c=>c.items.forEach(i=>{
+    const g=c.groups.find(x=>x.id===i.group), w=i.w||(g?g.total/g.bestOf:5);
+    const p=(d(i.due)-T0)/(T1-T0)*100, dn=S.scores[i.id]!==undefined&&S.scores[i.id]!=="";
+    h+=`<div class="mark" data-course="${c.id}" title="${esc(c.code+" · "+i.name+" · "+w+"% · "+fmtL(i.due))}"
+      style="left:${p}%;height:${12+w*1.9}px;background:${dn?"#2E4257":c.color}"></div>`}));
+  h+=`</div></div><div class="row" style="gap:14px;font-size:12px;padding-bottom:8px">`;
+  COURSES.forEach(c=>h+=`<span class="muted" style="display:flex;align-items:center;gap:6px">
+    <span style="width:9px;height:9px;background:${c.color};border-radius:2px"></span>${c.code}</span>`);
+  h+=`<span class="muted">Bar height is what the mark is worth</span></div></div>`;
+
+  /* tabs */
+  const tabs=[["grades","Grades"],["deadlines","Deadlines"],
+    ["prep","Readings"+(totalBehind?" · "+totalBehind+" behind":"")],
+    ["risk","Pressure points"],["ref","Course facts"],["set","Sync"]];
+  h+=`<div class="tabs">`+tabs.map(t=>
+    `<button class="btn${tab===t[0]?" on":""}" data-tab="${t[0]}">${t[1]}</button>`).join("")+`</div>`;
+
+  if(tab==="grades"){
+    COURSES.forEach(c=>{
+      const r=R[c.id], tg=S.targets[c.id], nd=needFor(tg,r.earned,r.remaining);
+      const cur=c.passFail?null:letterFor(r.standing,c.scale);
+      const nx=(!c.passFail&&r.standing!==null)?nextCut(r.standing,c.scale):null;
+      const op=openCourse===c.id;
+      let statusLabel;
+      if(c.passFail){
+        if(r.standing===null)statusLabel='<span class="muted">no marks yet</span>';
+        else if(r.remaining<=0)statusLabel=r.standing>=c.passThreshold
+          ?'<span style="color:#6FA88A">CR</span>':'<span style="color:#C97A5D">F</span>';
+        else statusLabel=`<span class="muted">need ${c.passThreshold}% combined</span>`;
+      } else statusLabel=cur?`<span style="color:${c.color}">${cur.letter} · ${cur.gp.toFixed(1)}</span>`:'<span class="muted">no marks yet</span>';
+      h+=`<div class="panel" style="margin-bottom:10px;border-left:3px solid ${c.color}">
+        <div class="chead" data-open="${c.id}"><div>
+          <h3 style="font-size:15.5px">${c.code} <span class="muted" style="font-weight:400">${c.title}</span>${c.passFail?' <span class="pill">pass/fail</span>':""}</h3>
+          <div class="muted" style="font-size:12.5px;margin-top:2px">${c.prof} · ${c.days} · ${c.room} · ${r.remaining.toFixed(1)}% still unmarked</div>
+        </div><div style="text-align:right">
+          <div style="font-size:24px;font-weight:600;letter-spacing:-.03em">${r.standing===null?'<span class="muted">—</span>':r.standing.toFixed(1)+"%"}</div>
+          <div style="font-size:12px">${statusLabel}</div>
+        </div></div>`;
+      if(op){
+        h+=`<div style="padding:0 16px 16px">`;
+        if(c.hurdle)h+=`<div class="flag">${c.hurdle}</div>`;
+        h+=`<table><thead><tr><th style="width:44%">Assessment</th><th>Worth</th><th>Due</th><th style="width:88px">Your %</th></tr></thead><tbody>`;
+        c.items.forEach(i=>{
+          const g=c.groups.find(x=>x.id===i.group), w=g?g.total/g.bestOf:i.w;
+          const drop=g&&r.gs[g.id]&&S.scores[i.id]!==undefined&&S.scores[i.id]!==""&&!r.gs[g.id].kept.includes(i.id);
+          h+=`<tr style="opacity:${drop?.45:1}"><td>${i.name}${drop?' <span class="pill">dropped</span>':""}
+            ${i.note?`<div class="muted" style="font-size:11.5px;margin-top:2px">${i.note}</div>`:""}</td>
+            <td class="muted">${w%1?w.toFixed(1):w}%</td><td class="muted">${i.tbd?"Dec 8–18":fmt(i.due)}</td>
+            <td><input type="number" min="0" max="110" style="width:72px" placeholder="—"
+              data-score="${i.id}" value="${S.scores[i.id]??""}"></td></tr>`});
+        h+=`</tbody></table>`;
+        if(c.passFail){
+          const passNd=needFor(c.passThreshold,r.earned,r.remaining);
+          h+=`<div style="margin-top:14px;font-size:13.5px">`;
+          h+= passNd===null?(r.standing>=c.passThreshold
+                ?'<span style="color:#6FA88A">Combined average is above 50%. This is a pass.</span>'
+                :'<span style="color:#C97A5D">Combined average is below 50%. This is a fail.</span>')
+            : passNd>100?`<span style="color:#C97A5D">50% is out of reach. You would need ${passNd.toFixed(1)}% on the remaining ${r.remaining.toFixed(1)}%. Highest still possible: ${r.ceiling.toFixed(1)}%.</span>`
+            : passNd<=0?`<span style="color:#6FA88A">A pass is already banked, even at zero on everything left.</span>`
+            : `Average <b style="color:${c.color}">${passNd.toFixed(1)}%</b> across the remaining ${r.remaining.toFixed(1)}% to clear the 50% combined threshold. This course does not affect your GPA either way, it only needs to clear the line.`;
+          h+=`</div>`;
+        } else {
+          h+=`<div class="row" style="margin-top:14px;align-items:center;gap:10px">
+            <span class="muted" style="font-size:13px">Aiming for</span>
+            <input type="number" min="0" max="100" style="width:68px" data-target="${c.id}" value="${tg}">
+            <span class="muted" style="font-size:13px">(${letterFor(tg,c.scale).letter} on this course's scale)</span></div>
+          <div style="margin-top:10px;font-size:13.5px">`;
+          h+= nd===null?'<span class="muted">Everything is marked. Locked in.</span>'
+            : nd>100?`<span style="color:#C97A5D">${tg}% is out of reach. You would need ${nd.toFixed(1)}% on the remaining ${r.remaining.toFixed(1)}%. Highest still possible: ${r.ceiling.toFixed(1)}%.</span>`
+            : nd<=0?`<span style="color:#6FA88A">${tg}% is already banked, even at zero on everything left.</span>`
+            : `Average <b style="color:${c.color}">${nd.toFixed(1)}%</b> across the remaining ${r.remaining.toFixed(1)}% and you land at ${tg}%. Worst case if you stop now: ${r.floor.toFixed(1)}%. Best case: ${r.ceiling.toFixed(1)}%.`;
+          h+=`</div>`;
+          if(nx&&r.remaining>0)h+=`<div class="muted" style="font-size:12.5px;margin-top:5px">
+            Next grade up is ${nx.letter} at ${nx.cutoff}%, which needs ${needFor(nx.cutoff,r.earned,r.remaining).toFixed(1)}% on what's left.</div>`;
+        }
+      }
+      h+=`</div>`;
+    });
+    h+=`<div class="panel" style="padding:14px 16px;margin-top:14px">
+      <h3 style="font-size:14px;margin-bottom:10px">How the GPA is built</h3>
+      <table><thead><tr><th>Course</th><th>Standing</th><th>Letter</th><th>Points</th><th>Scale quirk</th></tr></thead><tbody>`;
+    COURSES.forEach((c,i)=>{
+      if(c.passFail){const rr=R[c.id];
+        h+=`<tr><td>${c.code}</td><td>${rr.standing===null?'<span class="muted">—</span>':rr.standing.toFixed(1)+"%"}</td>
+          <td class="muted">n/a</td><td class="muted">not counted</td>
+          <td class="muted" style="font-size:12px">${c.scaleNote}</td></tr>`;return;}
+      const row=rows[i];
+      h+=`<tr><td>${c.code}</td><td>${row?row.pct.toFixed(1)+"%":'<span class="muted">—</span>'}</td>
+        <td style="color:${row?c.color:"#5B6E84"}">${row?row.letter:"—"}</td>
+        <td>${row?row.gp.toFixed(1):'<span class="muted">—</span>'}</td>
+        <td class="muted" style="font-size:12px">${c.scaleNote}</td></tr>`});
+    h+=`</tbody></table><div class="muted" style="font-size:12px;margin-top:9px">
+      FNCE, OBHR, OPMA and GEOG are 3-unit GPA courses. An 84 is a B+ in FNCE, OBHR and GEOG, but an A- in OPMA.
+      ERTH 374 carries no GPA weight at all: it is graded Completed Requirements or Fail, and only needs to clear 50% combined across its three exams.</div></div>`;
+  }
+
+  if(tab==="deadlines"){
+    if(over.length){h+=`<div class="panel" style="padding:13px 16px;margin-bottom:12px;border-left:3px solid #C97A5D">
+      <h3 style="font-size:14px;margin-bottom:6px">Past due and unmarked</h3>`;
+      over.forEach(i=>{h+=`<div class="item"><span style="width:8px;height:8px;border-radius:2px;background:${i.course?i.course.color:"#5B6E84"}"></span>
+        <span style="flex:1;min-width:180px">${i.name}</span><span class="muted" style="font-size:12.5px">${fmt(i.due)}</span>
+        ${i.type==="t"?`<button class="btn" data-task="${i.id}">Done</button>`:""}</div>`});
+      h+=`</div>`}
+    h+=`<div class="panel" style="padding:13px 16px;margin-bottom:12px"><h3 style="font-size:14px;margin-bottom:4px">Next up</h3>`;
+    if(!up.length)h+=`<div class="muted" style="font-size:13px;padding:8px 0">Nothing left on the calendar.</div>`;
+    up.forEach(i=>{const dd=dbet(tm,d(i.due));
+      const heat=dd<=2?"#C97A5D":dd<=7?"#E0A33E":"#8598AC";
+      h+=`<div class="item"><span style="width:8px;height:8px;border-radius:2px;background:${i.course?i.course.color:"#5B6E84"}"></span>
+        <div style="flex:1;min-width:190px"><div style="font-size:13.5px">${i.name}</div>
+        <div class="muted" style="font-size:11.5px">${i.course?i.course.code:"Admin"} · ${fmtL(i.due)}${i.w?" · "+i.w+"%":""}</div></div>
+        <span style="color:${heat};font-size:13px">${dd===0?"today":dd===1?"tomorrow":dd+" days"}</span>
+        ${i.type==="t"?`<button class="btn" data-task="${i.id}">Done</button>`:""}</div>`});
+    h+=`</div><div class="panel" style="padding:13px 16px"><h3 style="font-size:14px;margin-bottom:10px">Add your own</h3>
+      <div class="row" style="gap:8px"><input id="ntext" style="flex:2;min-width:190px" placeholder="What needs doing">
+      <input id="ndate" type="date"><select id="ncourse"><option value="">No course</option>`;
+    COURSES.forEach(c=>h+=`<option value="${c.id}">${c.code}</option>`);
+    h+=`</select><button class="btn on" id="addtask">Add</button></div>`;
+    if(S.customTasks.length){h+=`<div style="margin-top:12px">`;
+      S.customTasks.forEach(t=>h+=`<div class="item">
+        <span style="flex:1;${S.doneTasks[t.id]?"text-decoration:line-through;opacity:.5":""}">${esc(t.text)}</span>
+        <span class="muted" style="font-size:12px">${fmt(t.due)}</span>
+        <button class="btn" data-task="${t.id}">${S.doneTasks[t.id]?"Undo":"Done"}</button>
+        <button class="btn" data-del="${t.id}">Remove</button></div>`);
+      h+=`</div>`}
+    h+=`</div>`;
+  }
+
+  if(tab==="prep"){
+    h+=`<div class="row" style="gap:8px;margin-bottom:12px">`+COURSES.map(c=>
+      `<button class="btn${prepCourse===c.id?" on":""}" data-prep="${c.id}">${c.code}${behind[c.id].behind?" · "+behind[c.id].behind:""}</button>`).join("")+`</div>`;
+    const pc=COURSES.find(c=>c.id===prepCourse), list=PREP.filter(p=>p.c===prepCourse);
+    h+=`<div class="panel" style="padding:14px 16px;border-left:3px solid ${pc.color}">
+      <div class="row" style="justify-content:space-between;align-items:baseline;margin-bottom:4px">
+      <h3 style="font-size:14.5px">${pc.code} prep</h3>`;
+    if(list.length)h+=`<div style="font-size:13px;color:${behind[prepCourse].behind?"#E0A33E":"#6FA88A"}">
+      ${behind[prepCourse].behind?behind[prepCourse].behind+" behind":"caught up"}
+      <span class="muted"> · ${behind[prepCourse].done} of ${behind[prepCourse].total} done</span></div>`;
+    h+=`</div>`;
+    if(!list.length)h+=`<div class="muted" style="font-size:13px;padding:10px 0">
+      ERTH 374 has no required textbook and the outline lists no readings. Everything examinable comes from lecture and D2L, so your notes are the only study asset. Note this course is pass/fail and carries no GPA weight.</div>`;
+    else{
+      h+=`<div class="muted" style="font-size:12.5px;margin-bottom:8px">${prepCourse==="geog"
+        ?"Asynchronous, so nothing forces you to keep pace. The Oct 23 midterm is cumulative across Weeks 1 to 8 and the final covers all thirteen case files."
+        :"Chapters as assigned in the outline."}</div>`;
+      list.forEach(p=>{const past=d(p.date)<tm, dn=!!S.readDone[p.id];
+        h+=`<div class="item"><input class="ck" type="checkbox" data-read="${p.id}" ${dn?"checked":""} style="accent-color:${pc.color}">
+          <div style="flex:1;min-width:190px;${dn?"opacity:.5;text-decoration:line-through":""}">
+          <div style="font-size:13.5px">${esc(p.t)}</div>
+          <div class="muted" style="font-size:11.5px">${prepCourse==="geog"?"Week "+p.u+", starting "+fmtL(p.date):"for "+fmtL(p.date)}</div></div>
+          ${past&&!dn?'<span class="pill" style="border-color:#7A4E3C;color:#E0A33E">behind</span>':""}</div>`})}
+    h+=`</div>`;
+  }
+
+  if(tab==="risk"){
+    const blocks=[
+     ["Oct 21 – Oct 28","97 points of course weight, two of them on the same day",
+      "OPMA midterm Wed Oct 21 at 6:30pm (35%). Then Friday Oct 23 carries both the OBHR emotions paper at 11:59pm (25%) and the GEOG midterm (30%, cumulative over eight weeks). FNCE Quiz 3 follows Oct 28. Oct 23 is the single worst day of your term and neither item can move. Draft the paper the week of Oct 12."],
+     ["Oct 1 – Oct 8","Five graded items in eight days",
+      "OPMA Assignment 1 Thu Oct 1 by 5pm as a physical printout, GEOG Quiz 1 Mon Oct 5, FNCE Quiz 2 Wed Oct 7, ERTH 374 Midterm 1 Thu Oct 8 (25% of its pass/fail aggregate, no GPA weight but still needs to be cleared). The OPMA piece needs a group formed by Sept 14."],
+     ["Nov 4 – Nov 5","Two midterms back to back",
+      "OBHR midterm Wed Nov 4 (25%, 75 minutes on D2L). ERTH 374 Midterm 2 the very next day, Thu Nov 5 (30% of its aggregate). Neither is large in isolation but they sit one day apart with no shared material, so they need separate prep blocks, not one combined cram session."],
+     ["Nov 16 – Nov 18","Straight out of term break",
+      "OPMA Assignment 2 due Mon Nov 16 at 5pm, OPMA presentation Nov 17 or 19, FNCE Quiz 4 Wed Nov 18. Term break Nov 8 to 14 is the only slack before it."],
+     ["Nov 27 – Dec 15","The long tail",
+      "GEOG Atlas Fri Nov 27, OPMA Assignment 3 Thu Dec 3, FNCE Assignment 5 Fri Dec 5, then finals Dec 8 to 18 plus the GEOG final on Dec 15. The Atlas needs a pin claimed between Oct 19 and Nov 13."]];
+    h+=`<div class="panel" style="padding:14px 16px;margin-bottom:12px">
+      <h3 style="font-size:14px;margin-bottom:4px">The five windows that decide your term</h3>
+      <div class="muted" style="font-size:12.5px;margin-bottom:12px">Ranked by how much graded weight lands in a short span.</div>`;
+    blocks.forEach(b=>h+=`<div style="border-top:1px solid #1E2B3B;padding:11px 0">
+      <div style="font-size:13.5px;font-weight:600">${b[0]}</div>
+      <div style="font-size:12.5px;color:#E0A33E;margin-bottom:4px">${b[1]}</div>
+      <div class="muted" style="font-size:13px">${b[2]}</div></div>`);
+    h+=`</div><div class="panel" style="padding:14px 16px;margin-bottom:12px">
+      <h3 style="font-size:14px;margin-bottom:10px">Rules that can sink you even with a good average</h3>
+      <div class="flag"><b>OPMA:</b> your midterm and final have to average 50%. Miss that and you get D+ regardless of your total.</div>
+      <div class="flag"><b>OBHR:</b> you must pass every assessment individually. One zero fails the course.</div>
+      <div class="flag"><b>GEOG:</b> the final alone is 50%, covering all thirteen weeks. Late work loses 20% per day.</div>
+      <div class="flag"><b>ERTH 374:</b> pass/fail, no GPA weight. Needs 50% combined across the three exams to get a CR. A single bad midterm can still be recovered on the others since it is the aggregate that counts, not each exam individually.</div>
+      <div class="flag"><b>FNCE:</b> five or more days late on an assignment is an automatic zero.</div>
+      <div class="flag"><b>Haskayne-wide:</b> more than four deferral requests across your degree triggers a meeting with the Associate Dean.</div></div>`;
+    const chosen=COURSES.map(c=>({c,s:c.sections.find(x=>x.id===S.sections[c.id])})).filter(x=>x.s&&x.s.day!=="ASYNC");
+    const con=[];
+    for(let i=0;i<chosen.length;i++)for(let j=i+1;j<chosen.length;j++){
+      const a=chosen[i],b=chosen[j];
+      if(a.s.day===b.s.day&&a.s.start<b.s.end&&b.s.start<a.s.end)
+        con.push(`${a.c.code} ${a.s.id} overlaps ${b.c.code} ${b.s.id} on ${a.s.day}`)}
+    h+=`<div class="panel" style="padding:14px 16px"><h3 style="font-size:14px;margin-bottom:4px">Your sections</h3>
+      <div class="muted" style="font-size:12.5px;margin-bottom:12px">Set these to what you are actually registered in.</div>`;
+    COURSES.forEach(c=>{h+=`<div class="row" style="align-items:center;gap:10px;padding:6px 0">
+      <span style="width:88px;font-size:13px">${c.code}</span><select data-sec="${c.id}">`;
+      c.sections.forEach(s=>h+=`<option value="${s.id}"${S.sections[c.id]===s.id?" selected":""}>${s.label}</option>`);
+      h+=`</select></div>`});
+    h+=con.length?con.map(x=>`<div class="flag" style="margin-top:10px">${x}</div>`).join("")
+      :`<div style="color:#6FA88A;font-size:13px;margin-top:12px">No overlaps in that combination.</div>`;
+    h+=`<div class="muted" style="font-size:12.5px;margin-top:10px">
+      FNCE L01 sits on top of OBHR 317, so avoid that pairing. ERTH 374 is now at 15:30-16:45 TR and no longer collides with anything.</div></div>`;
+  }
+
+  if(tab==="ref"){
+    h+=`<div class="row" style="gap:10px">`;
+    COURSES.forEach(c=>h+=`<div class="panel" style="padding:14px 16px;flex:1 1 300px;border-top:3px solid ${c.color}">
+      <h3 style="font-size:14.5px">${c.code}</h3>
+      <div class="muted" style="font-size:12.5px;margin-bottom:10px">${c.title}</div>
+      <table><tbody>
+      <tr><td class="muted">Instructor</td><td>${c.prof}</td></tr>
+      <tr><td class="muted">When</td><td>${c.days}</td></tr>
+      <tr><td class="muted">Where</td><td>${c.room}</td></tr>
+      <tr><td class="muted">Text</td><td>${c.source}</td></tr>
+      <tr><td class="muted">AI policy</td><td>${c.ai}</td></tr></tbody></table></div>`);
+    h+=`<div class="panel" style="padding:14px 16px;flex:1 1 100%">
+      <h3 style="font-size:14px;margin-bottom:8px">Worth confirming in week one</h3>
+      <ul class="muted" style="font-size:13px;margin:0;padding-left:18px;line-height:1.7">
+      <li>FNCE assignments: five at 6% totalling 30% with one dropped only adds up if the four that count are 7.5% each. This assumes 7.5%. Ask Paget.</li>
+      <li>OBHR: the grade table says the paper is 25%, the description says 20%. Only 25% makes the course total 100%. The outline is stamped DRAFT ONLY.</li>
+      <li>OPMA midterm: grade table says 6:30–9:30pm, schedule page says 7:00–10:00pm. Show up at 6:30.</li>
+      <li>GEOG: the outline mentions L1 and L2 with different TAs and reading lists. Confirm which you are in.</li>
+      <li>ERTH 374 is Completed Requirements or Fail and does not affect GPA at all. Its outline does not state an AI or aids policy the way ERTH 375's did, so ask Georgescu directly rather than assuming either way.</li></ul></div></div>`;
+  }
+
+  if(tab==="set"){
+    h+=`<div class="panel" style="padding:14px 16px;margin-bottom:12px">
+      <h3 style="font-size:14px;margin-bottom:4px">Sync across devices</h3>
+      <div class="muted" style="font-size:12.5px;margin-bottom:12px">
+        Without this, your marks live only in the browser you typed them into. Fill in all three and this device
+        pushes changes up and pulls them down. Setup steps are in the README.</div>
+      <div style="display:grid;gap:8px;max-width:520px">
+        <input id="cfgurl" placeholder="Supabase project URL (https://xxxx.supabase.co)" value="${esc(CFG.url)}">
+        <input id="cfgkey" placeholder="Supabase anon public key" value="${esc(CFG.key)}">
+        <input id="cfgid" placeholder="A sync ID you invent, e.g. mustapha-f26-7Kq2" value="${esc(CFG.id)}">
+      </div>
+      <div class="row" style="gap:8px;margin-top:12px">
+        <button class="btn on" id="savecfg">Save and connect</button>
+        <button class="btn" id="pullnow">Pull from cloud</button>
+        <button class="btn" id="pushnow">Push to cloud</button></div>
+      <div class="muted" style="font-size:12px;margin-top:10px">
+        Anyone who knows all three values can read and write this data, so treat the sync ID as a password
+        and do not commit it into a public repository. It only ever holds course marks.</div></div>
+    <div class="panel" style="padding:14px 16px">
+      <h3 style="font-size:14px;margin-bottom:4px">Backup without an account</h3>
+      <div class="muted" style="font-size:12.5px;margin-bottom:10px">
+        Copy this text on one device and paste it on another. Manual, but it needs nothing set up.</div>
+      <textarea id="dump">${esc(JSON.stringify(S))}</textarea>
+      <div class="row" style="gap:8px;margin-top:8px">
+        <button class="btn" id="copydump">Copy</button>
+        <button class="btn" id="loaddump">Load what is in the box</button></div></div>`;
+  }
+
+  document.getElementById("app").innerHTML=h;
+  wire();
+}
+
+/* ============================ EVENTS ============================ */
+function wire(){
+  const app=document.getElementById("app");
+  app.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{tab=b.dataset.tab;render()});
+  app.querySelectorAll("[data-open]").forEach(b=>b.onclick=()=>{
+    openCourse=openCourse===b.dataset.open?null:b.dataset.open;render()});
+  app.querySelectorAll("[data-prep]").forEach(b=>b.onclick=()=>{prepCourse=b.dataset.prep;render()});
+  app.querySelectorAll(".mark").forEach(m=>m.onclick=()=>{tab="grades";openCourse=m.dataset.course;render()});
+  app.querySelectorAll("[data-score]").forEach(i=>i.onchange=()=>{
+    const v=i.value.trim();
+    if(v==="")delete S.scores[i.dataset.score];else S.scores[i.dataset.score]=v;
+    saveLocal();render()});
+  app.querySelectorAll("[data-target]").forEach(i=>i.onchange=()=>{
+    S.targets[i.dataset.target]=parseFloat(i.value)||0;saveLocal();render()});
+  app.querySelectorAll("[data-read]").forEach(i=>i.onchange=()=>{
+    S.readDone[i.dataset.read]=i.checked;saveLocal();render()});
+  app.querySelectorAll("[data-task]").forEach(b=>b.onclick=()=>{
+    S.doneTasks[b.dataset.task]=!S.doneTasks[b.dataset.task];saveLocal();render()});
+  app.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{
+    S.customTasks=S.customTasks.filter(t=>t.id!==b.dataset.del);saveLocal();render()});
+  app.querySelectorAll("[data-sec]").forEach(s=>s.onchange=()=>{
+    S.sections[s.dataset.sec]=s.value;saveLocal();render()});
+
+  const add=document.getElementById("addtask");
+  if(add)add.onclick=()=>{
+    const t=document.getElementById("ntext").value.trim(), dt=document.getElementById("ndate").value;
+    if(!t||!dt)return;
+    S.customTasks.push({id:"c"+Date.now(),text:t,due:dt,course:document.getElementById("ncourse").value||null});
+    saveLocal();render()};
+
+  const sc=document.getElementById("savecfg");
+  if(sc)sc.onclick=async()=>{
+    CFG.url=document.getElementById("cfgurl").value.trim();
+    CFG.key=document.getElementById("cfgkey").value.trim();
+    CFG.id=document.getElementById("cfgid").value.trim();
+    saveCfg();await pullRemote(false)};
+  const pl=document.getElementById("pullnow"); if(pl)pl.onclick=()=>pullRemote(true);
+  const ps=document.getElementById("pushnow"); if(ps)ps.onclick=()=>pushRemote();
+  const cd=document.getElementById("copydump");
+  if(cd)cd.onclick=()=>{const t=document.getElementById("dump");t.select();
+    try{document.execCommand("copy");setSync("copied")}catch(e){}};
+  const ld=document.getElementById("loaddump");
+  if(ld)ld.onclick=()=>{try{S=Object.assign(S,JSON.parse(document.getElementById("dump").value));
+    saveLocal();setSync("loaded");render()}catch(e){setSync("that was not valid backup text")}};
+}
+
+/* ============================ BOOT ============================ */
+loadLocal();
+render();
+if(syncOn())pullRemote(false);
+window.addEventListener("focus",()=>{if(syncOn())pullRemote(false)});
+if("serviceWorker" in navigator)
+  window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
+</script>
+</body>
+</html>
